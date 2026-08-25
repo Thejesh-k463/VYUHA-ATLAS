@@ -1,6 +1,20 @@
 # VYUHA-ATLAS-STATE — session handoff
 
-Updated: 2026-08-25 (phases 2, 3 and 4 shipped in one session).
+Updated: 2026-08-26 (phases 2–5 shipped across one session, 25–26 Aug).
+
+## Phase 5 — Unified tax pack — DONE, gate PASSED (2026-08-26, latest)
+- /tax screen: per-FY equity CG (MF FIFO legs ST/LT + delivery trades), F&O ICAI turnover
+  (Σ|gross| per trade) + s44AB/s44AD verdict with reasons/assumptions, estimate + advance
+  schedule, loss carry-forward ledger, versioned tax_rates table (seeded once, resolved
+  per SALE date — 23-Jul-2024 change verified live: FY24-25 → 15/10%, FY25-26 → 20/12.5%).
+- 112A CSV generator+validator (gate): route self-validates, never emits an invalid file.
+  Live: 17 rows FY25-26, 14 rows FY24-25; FY25-26 LTCG ₹14,400 → ₹0 tax (inside 1.25L).
+- Envelope importer extended with per-trade facts (trading_trades, migration 0005);
+  re-imported the user's envelope from Downloads (11.1MB, still there) — Map equity
+  unchanged to the paisa. 57 undated delivery + 1 undated F&O trade quarantined from
+  every FY, loudly. 154/154 tests in 19 files.
+- Real-data caveats pinned on screen: undated Dhan trades need dates in VYUHA; slab rate
+  is an ASSUMPTION row (30%) the user should edit; hybrid MF routes to slab on purpose.
 
 ## Phase 4 — Goals & planning — DONE, gate PASSED (2026-08-25, latest)
 - Goals CRUD + asset→goal mappings (mf_holding | account | trading, share %), inflated
@@ -123,13 +137,16 @@ AGENTS.md ("End-of-session discipline"): verify green → update this file → c
 clean `git status`. `data/` (real encrypted financial data) is gitignored, never committed.
 
 ## Open work — next steps in order
-1. Phase 5 (unified tax pack: equity+MF+F&O FY view, Schedule 112A CSV, ICAI turnover,
-   advance-tax estimator, loss carry-forward; rates in a versioned config table) per ROADMAP.
+1. Phase 6 (protection & estate: insurance registry + adequacy, nominee registry +
+   mismatch report, encrypted death-pack export, annual archive packs) per ROADMAP.
 2. Import the user's HDFC statement — fixes the emergency gauge (SBI→HDFC transfers
    currently count as spending, burn rate inflated) and enables cross-account UPI pairing.
-3. The SBI statement covers only 2025-03-25 → 2025-06-24; newer statements refresh the
+3. Data-quality items the tax pack surfaced: 57 undated Dhan delivery trades + 1 undated
+   F&O trade excluded from every FY — adding dates in VYUHA and re-importing fixes; edit
+   the slab_assumption tax_rates row (default 30%) to the real marginal slab.
+4. The SBI statement covers only 2025-03-25 → 2025-06-24; newer statements refresh the
    balance snapshot and give recurring detection more months.
-4. User has no goals defined yet — /goals is live and empty.
+5. User has no goals defined yet — /goals is live and empty.
 3. Off-machine backup target (copy encrypted snapshots to a second drive/cloud) — the 3-2-1
    gap; snapshots are already encrypted so any dumb storage works.
 4. Optional: passphrase-mode rekey flow on the System page (env-only today).

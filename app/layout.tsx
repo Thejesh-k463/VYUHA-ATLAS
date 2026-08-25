@@ -17,6 +17,7 @@ const NAV = [
   { href: "/investments", label: "Invest" },
   { href: "/expenses", label: "Expenses" },
   { href: "/goals", label: "Goals" },
+  { href: "/tax", label: "Tax" },
   { href: "/trading", label: "Trading" },
   { href: "/accounts", label: "Accounts" },
   { href: "/import", label: "Import" },

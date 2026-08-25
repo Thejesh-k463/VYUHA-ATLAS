@@ -108,9 +108,24 @@ export interface TradingCashflowFact {
   amount: number; // rupees, signed as VYUHA stored it
 }
 
+/** One closed trade, verbatim from the envelope — the tax pack needs per-trade
+ *  absolutes (ICAI F&O turnover) and per-trade holding periods (equity ST/LT). */
+export interface ClosedTradeFact {
+  symbol: string;
+  segment: string;
+  buyDate: string | null;
+  sellDate: string | null;
+  buyValue: number | null; // rupees
+  sellValue: number | null;
+  grossPnl: number | null;
+  netPnl: number;
+  chargesTotal: number;
+}
+
 export interface VyuhaTradingFacts {
   envelopeVersion: number;
   envelopeCreatedAt: string;
+  trades: ClosedTradeFact[];
   periods: TradingPeriodFact[];
   segments: TradingSegmentFact[];
   chargesBreakdown: TradingChargeFact[];
@@ -142,6 +157,7 @@ export function parseVyuhaEnvelope(raw: unknown): EnvelopeResult {
     };
   }
 
+  const trades: ClosedTradeFact[] = [];
   const periods = new Map<string, TradingPeriodFact>();
   const segments = new Map<string, TradingSegmentFact>();
   const charges = new Map<string, number>();
@@ -179,6 +195,17 @@ export function parseVyuhaEnvelope(raw: unknown): EnvelopeResult {
       continue;
     }
     closedTradeCount++;
+    trades.push({
+      symbol: t.data.symbol ?? "(unknown)",
+      segment: t.data.segment ?? "unknown",
+      buyDate: t.data.buyDate || null,
+      sellDate: t.data.sellDate || null,
+      buyValue: t.data.buyValue ?? null,
+      sellValue: t.data.sellValue ?? null,
+      grossPnl: t.data.grossPnl ?? null,
+      netPnl: t.data.netPnl,
+      chargesTotal: t.data.chargesTotal ?? 0,
+    });
     const date = t.data.sellDate || t.data.buyDate || null; // "" and null both mean absent
     const period = date ? date.slice(0, 7) : UNDATED_PERIOD;
     const p = periods.get(period) ?? { period, realizedPnl: 0, grossPnl: 0, charges: 0, tradeCount: 0 };
@@ -229,6 +256,7 @@ export function parseVyuhaEnvelope(raw: unknown): EnvelopeResult {
     facts: {
       envelopeVersion: env.version,
       envelopeCreatedAt: env.createdAt,
+      trades,
       periods: [...periods.values()].sort((a, b) => a.period.localeCompare(b.period)),
       segments: [...segments.values()].sort((a, b) => b.tradeCount - a.tradeCount),
       chargesBreakdown: [...charges.entries()]

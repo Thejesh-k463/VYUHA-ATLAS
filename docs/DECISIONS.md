@@ -196,3 +196,38 @@ worse than none). Live consequence on real data: SBI-only import counts transfer
 user's HDFC account as spending (see the single-leg transfer decision), yielding 0.5
 months covered — importing the HDFC statement (auto-pairing) or manually categorizing
 those rows as 'transfer' corrects the burn rate. Deliberately left honest.
+
+## 2026-08-26 — Tax rates live in a versioned table, resolved per SALE date
+
+tax_rates(key, effectiveFrom, valueJson) seeded once from DEFAULT_TAX_RATES (Finance
+(No.2) Act 2024 values incl. the 23-Jul-2024 LTCG 10→12.5% / STCG 15→20% change), then
+the table is the authority — computations never read a rate from code. Resolution picks
+the latest effectiveFrom ≤ the sale date, so FY 2024-25 sales on 19-Jun-2024 correctly
+tax at 15/10% (verified live). A FY whose sales straddle a rate change gets the latest
+rate on the net plus a loud "review the split manually" warning — netting across
+different-rate buckets involves set-off ordering Atlas refuses to guess.
+
+## 2026-08-26 — ICAI F&O turnover needs per-trade rows; trading_trades added
+
+Turnover = Σ|gross P&L| per closed trade (ICAI Guidance Note absolutes); |net| fallback
+when gross is missing, counted and flagged. Phase-1 stored only aggregates, so the
+envelope importer now also lands per-trade facts in trading_trades (replace-by-source,
+same wipe). Old imports show a "re-import your VYUHA backup" banner instead of empty
+panels. Undated closed trades (the 57 Dhan rows + 1 F&O, net known, timing unknown)
+are excluded from EVERY FY and surfaced loudly — the undated-period rule extended to tax.
+
+## 2026-08-26 — Schedule 112A CSV self-validates; invalid files are never emitted
+
+Generator follows the AY 2024-25 portal template columns; the validator enforces the
+portal's parser rules (DD/MM/YYYY, AE/BE codes, 12-char ISIN, plain numbers, and NO
+commas anywhere — scheme-name commas are stripped to spaces). The download route runs
+the validator on its own output and returns 500 with violations rather than an invalid
+file. The header row is data, not law — re-check the portal's current template each AY.
+
+## 2026-08-26 — Non-equity MF classes go to the slab bucket, hybrid included
+
+Only assetClass 'equity' gets s111A/112A treatment. Debt/gold/other AND hybrid route to
+the slab-taxed bucket: a hybrid fund's equity share decides its regime and guessing it
+would be fabrication — the user reclassifies the holding if a fund is equity-oriented.
+Slab bucket taxes at the user-editable slab_assumption rate with the assumption stated
+on screen. F&O/intraday losses are shown as carry-forward candidates, never auto-set-off.

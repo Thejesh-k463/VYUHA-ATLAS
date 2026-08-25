@@ -326,6 +326,56 @@ export const goalMappings = sqliteTable(
   (t) => [index("goal_mappings_goal_idx").on(t.goalId)],
 );
 
+// ---- Phase 5: Unified tax pack ----
+
+// Per-trade facts from the VYUHA envelope (replace-by-source like the aggregates).
+// Needed because ICAI F&O turnover is per-trade |gross P&L| — aggregates can't give it.
+export const tradingTrades = sqliteTable(
+  "trading_trades",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    source: text("source").notNull(), // 'vyuha'
+    symbol: text("symbol").notNull(),
+    segment: text("segment").notNull(),
+    buyDate: text("buy_date"), // null = unknown (broker P&L imports) — never guessed
+    sellDate: text("sell_date"),
+    buyValue: moneyPaise("buy_value_paise"),
+    sellValue: moneyPaise("sell_value_paise"),
+    grossPnl: moneyPaise("gross_pnl_paise"),
+    netPnl: moneyPaise("net_pnl_paise").notNull(),
+    chargesTotal: moneyPaise("charges_total_paise").notNull().default(0),
+    importBatchId: integer("import_batch_id")
+      .notNull()
+      .references(() => importBatches.id),
+  },
+  (t) => [index("trading_trades_source_idx").on(t.source)],
+);
+
+// Versioned tax rates/thresholds — computations read ONLY from here, never constants
+// in code (ROADMAP phase 5). Picker: latest effectiveFrom <= the relevant date.
+export const taxRates = sqliteTable(
+  "tax_rates",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    key: text("key").notNull(), // e.g. equity_ltcg, equity_stcg, cess, fno_audit, advance_tax
+    effectiveFrom: text("effective_from").notNull(), // ISO yyyy-mm-dd
+    value: text("value").notNull(), // JSON
+    note: text("note"),
+  },
+  (t) => [uniqueIndex("tax_rates_key_from_idx").on(t.key, t.effectiveFrom)],
+);
+
+// Manual carry-forward ledger: losses from past FYs (from filed returns), plus
+// notes. Atlas shows current-FY losses eligible to carry, the user records them.
+export const lossCarryForward = sqliteTable("loss_carry_forward", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  fy: text("fy").notNull(), // e.g. "2024-25" (FY the loss arose)
+  lossType: text("loss_type").notNull(), // stcl | ltcl | fno | speculative
+  amount: moneyPaise("amount_paise").notNull(), // positive rupees
+  note: text("note"),
+  createdAt: text("created_at").notNull().default(now),
+});
+
 export const importBatches = sqliteTable("import_batches", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   source: text("source").notNull(),

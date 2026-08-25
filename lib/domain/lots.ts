@@ -19,12 +19,22 @@ export interface OpenLot {
   cost: number;
 }
 
+/** One consumed lot within a disposal — carries the acquisition date the tax
+ *  pack needs for ST/LT classification. Σ legs reconciles exactly to the event. */
+export interface RealizedLeg {
+  lotDate: string;
+  units: number;
+  cost: number; // FIFO cost of these units
+  proceeds: number; // pro-rata by units; last leg absorbs rounding
+}
+
 export interface RealizedEvent {
   date: string;
   units: number;
   proceeds: number; // rupees received (net, as the CAS states)
   costConsumed: number; // FIFO cost basis of the units sold
   gain: number; // proceeds − costConsumed
+  legs: RealizedLeg[];
 }
 
 export interface LotLedger {
@@ -72,17 +82,21 @@ export function buildLots(txs: LotTx[]): LotLedger {
     }
     if (DISPOSING.has(tx.txType) && tx.units < 0) {
       let toSell = -tx.units;
+      const totalUnits = -tx.units;
       const proceeds = Math.abs(tx.amount ?? 0);
       let costConsumed = 0;
+      const legs: RealizedLeg[] = [];
       while (toSell > UNIT_EPSILON && open.length > 0) {
         const lot = open[0];
         if (lot.units <= toSell + UNIT_EPSILON) {
+          legs.push({ lotDate: lot.date, units: lot.units, cost: lot.cost, proceeds: 0 });
           costConsumed += lot.cost;
           toSell -= lot.units;
           open.shift();
         } else {
           const fraction = toSell / lot.units;
           const costPart = roundPaise(lot.cost * fraction);
+          legs.push({ lotDate: lot.date, units: toSell, cost: costPart, proceeds: 0 });
           costConsumed += costPart;
           lot.cost = roundPaise(lot.cost - costPart);
           lot.units = lot.units - toSell;
@@ -94,6 +108,16 @@ export function buildLots(txs: LotTx[]): LotLedger {
           `${tx.date}: sold ${(-tx.units).toFixed(3)} units but only ${(-tx.units - toSell).toFixed(3)} were held (FIFO) — excess ignored, never fabricated.`,
         );
       }
+      // Pro-rata proceeds by units; the last leg absorbs rounding so Σ legs == event.
+      let assigned = 0;
+      for (let li = 0; li < legs.length; li++) {
+        if (li === legs.length - 1) {
+          legs[li].proceeds = roundPaise(proceeds - assigned);
+        } else {
+          legs[li].proceeds = roundPaise((proceeds * legs[li].units) / totalUnits);
+          assigned = roundPaise(assigned + legs[li].proceeds);
+        }
+      }
       costConsumed = roundPaise(costConsumed);
       realized.push({
         date: tx.date,
@@ -101,6 +125,7 @@ export function buildLots(txs: LotTx[]): LotLedger {
         proceeds,
         costConsumed,
         gain: roundPaise(proceeds - costConsumed),
+        legs,
       });
       continue;
     }

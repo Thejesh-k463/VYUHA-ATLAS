@@ -93,10 +93,23 @@ goal mapped trading 100% + SBI 50% = ₹7,60,608.96 exact, SIP ₹2,882.95/mo, s
 at exactly-required SIP (expected: just under 50% — median < mean under vol); test goal
 deleted after verification, production data clean.
 
-## Phase 5 — Unified tax pack  [status: TODO]
-Equity+MF+F&O FY view, Schedule 112A CSV (portal template), ICAI turnover + audit verdict,
-advance-tax estimator, loss carry-forward ledger. Rates in a versioned config table, never code.
-**Gate:** 112A CSV validates against portal template rules (DD/MM/YYYY, AE/BE codes, no commas).
+## Phase 5 — Unified tax pack  [status: DONE — gate PASSED 2026-08-26]
+FY view across MF (per-FIFO-leg ST/LT at the 12-month boundary), equity delivery trades and
+F&O (per-trade facts via new trading_trades + envelope importer extension, migration 0005);
+Schedule 112A CSV generator + validator; ICAI turnover (Σ|gross P&L|) + s44AB/s44AD audit
+verdict tree with reasons and stated assumptions; tax estimate (s111A/s112A/slab + cess) and
+s208/s211 advance-tax schedule; manual loss carry-forward ledger with current-FY candidates.
+All rates/thresholds in versioned tax_rates (seeded once, resolved per SALE date — the
+23-Jul-2024 change is a config row, not code). /tax screen.
+**Gate evidence:** generated 112A CSV passes its own portal validator clean (DD/MM/YYYY,
+AE/BE, 12-char ISIN, no commas — commas in scheme names stripped, comma-in-number breaks
+column count and is caught); validator violations tested per class; the download route
+refuses to emit a file that fails validation. 154/154 tests in 19 files. Live on real data:
+FY tabs 2023-24…2026-27; FY25-26 LTCG ₹14,400 inside the ₹1.25L exemption → ₹0 tax; FY24-25
+resolves 15/10% by sale date vs FY25-26 20/12.5%; 112A files: 17 rows (FY25-26) / 14 rows
+(FY24-25); 57 undated delivery + 1 undated F&O trade (net −₹1,835.19) quarantined from every
+FY with loud warnings; envelope re-import populated per-trade facts with Map equity unchanged
+to the paisa (₹6,40,830.92).
 
 ## Phase 6 — Protection & estate  [status: TODO]
 Insurance registry + adequacy, nominee registry + mismatch report, encrypted death-pack export,

@@ -9,6 +9,7 @@ import {
   tradingOpenPositions,
   tradingPeriods,
   tradingSegments,
+  tradingTrades,
 } from "@/lib/db/schema";
 import type { VyuhaTradingFacts } from "@/lib/import/vyuha-envelope";
 import { summarizeTradingFacts } from "@/lib/analytics/networth";
@@ -29,7 +30,7 @@ const SOURCE = "vyuha";
 export function replaceVyuhaFacts(facts: VyuhaTradingFacts, fileName: string | null): number {
   const db = getDb();
   return db.transaction((tx) => {
-    for (const t of [tradingPeriods, tradingCashflows, tradingSegments, tradingCharges, tradingOpenPositions, tradingCapital]) {
+    for (const t of [tradingPeriods, tradingCashflows, tradingSegments, tradingCharges, tradingOpenPositions, tradingCapital, tradingTrades]) {
       tx.delete(t).where(eq(t.source, SOURCE)).run();
     }
     const batch = tx
@@ -66,6 +67,9 @@ export function replaceVyuhaFacts(facts: VyuhaTradingFacts, fileName: string | n
     }
     for (const c of facts.capital) {
       tx.insert(tradingCapital).values({ source: SOURCE, importBatchId, ...c }).run();
+    }
+    for (const t of facts.trades) {
+      tx.insert(tradingTrades).values({ source: SOURCE, importBatchId, ...t }).run();
     }
     return importBatchId;
   });
