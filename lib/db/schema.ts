@@ -241,6 +241,59 @@ export const allocationTargets = sqliteTable(
   (t) => [uniqueIndex("allocation_targets_class_idx").on(t.assetClass)],
 );
 
+// ---- Phase 3: Expenses ----
+
+// Bank/credit-card statement rows. Signed rupees at runtime (debits negative).
+// Dedup is row-level (VYUHA's SHA-1 approach — DECISIONS.md: incremental sources
+// dedup by row, snapshot sources replace): `hash` covers account+date+amount+
+// normalized description+same-tuple occurrence index, so re-importing an
+// overlapping statement skips exactly, while two genuinely identical same-day
+// payments inside one statement both survive.
+export const bankTransactions = sqliteTable(
+  "bank_transactions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => accounts.id),
+    date: text("date").notNull(), // ISO yyyy-mm-dd
+    description: text("description").notNull(),
+    amount: moneyPaise("amount_paise").notNull(), // signed; debit negative
+    balance: moneyPaise("balance_paise"), // running balance when the CSV has one
+    category: text("category"),
+    categorySource: text("category_source"), // rule | manual
+    upiRef: text("upi_ref"), // 12-digit UPI RRN when the description carries one
+    hash: text("hash").notNull(),
+    importBatchId: integer("import_batch_id")
+      .notNull()
+      .references(() => importBatches.id),
+  },
+  (t) => [
+    uniqueIndex("bank_tx_hash_idx").on(t.hash),
+    index("bank_tx_account_date_idx").on(t.accountId, t.date),
+  ],
+);
+
+// First matching rule (lowest priority number, then id) categorizes a transaction.
+export const expenseRules = sqliteTable("expense_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pattern: text("pattern").notNull(), // case-insensitive substring, or /regex/
+  category: text("category").notNull(),
+  priority: integer("priority").notNull().default(100),
+  createdAt: text("created_at").notNull().default(now),
+});
+
+export const budgets = sqliteTable(
+  "budgets",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    category: text("category").notNull(),
+    monthlyLimit: moneyPaise("monthly_limit_paise").notNull(),
+    createdAt: text("created_at").notNull().default(now),
+  },
+  (t) => [uniqueIndex("budgets_category_idx").on(t.category)],
+);
+
 export const importBatches = sqliteTable("import_batches", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   source: text("source").notNull(),

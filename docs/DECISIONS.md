@@ -137,3 +137,35 @@ then www and treats a zero-row parse as failure so an HTML body can never look l
 success. mfapi.in remains primary per-scheme (codes resolved from NAVAll by ISIN);
 NAV refresh is idempotent via unique (isin, date) upsert — verified live, two
 consecutive refreshes both upserted 9 rows with no growth.
+
+## 2026-08-25 — Bank rows dedup by SHA-1 hash with a same-tuple occurrence counter
+
+Row hash = sha1(accountId | date | amountPaise | normalized description | occurrence#),
+occurrence counted per identical tuple WITHIN one parsed statement. Re-importing an
+overlapping statement reproduces the same hash set → the unique index skips every repeat;
+two genuinely identical same-day payments in one statement get #0/#1 and both insert.
+Rejected alternative: hashing without the counter silently drops legitimate duplicate
+payments (two identical UPI orders in one day is normal).
+
+## 2026-08-25 — Date-format detection is majority-vote, day-first on ties
+
+Real statements carry footer junk in the date column ("STATEMENT SUMMARY :-"), so
+requiring every row to parse under one format detects nothing. The format winning the
+most rows wins; dmy beats mdy on ties (Indian banks are day-first); junk rows then
+reject row-by-row with reasons. An unreadable BALANCE never rejects a row — balance is
+auxiliary and stays null; unreadable date/amount always rejects (the phase-3 gate).
+
+## 2026-08-25 — Self-transfer pairing needs both legs; single-leg stays honest
+
+Transactions sharing one UPI RRN with opposite amounts in two DIFFERENT accounts are
+auto-categorized "transfer" and excluded from spending/income. With only one account's
+statement imported, the out-leg counts as spending — deliberately: claiming "transfer"
+without the receiving side in evidence would be fabrication. Manual category 'transfer'
+is the user's override. Same-account same-ref pairs never auto-pair (refunds exist).
+
+## 2026-08-25 — Statement balance column feeds balance_snapshots
+
+A balance-bearing import records one snapshot (source 'import') at the statement's
+latest dated row, so the Map follows the bank balance without manual entry. Recurring
+detection: ≥3 debits of one merchant key, median gap 26–35 days, every amount within
+±25% of the median — SIPs/rent/subscriptions qualify; ad-hoc spending does not.

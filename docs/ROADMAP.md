@@ -60,9 +60,20 @@ CAS closing units on all 10 holdings; 9/9 NAVs live from mfapi; portfolio XIRR 1
 89/89 tests green. (Equity corporate actions beyond MF events belong to the demat/
 equity phase — MF-side actions (segregation, switches, IDCW) are covered.)
 
-## Phase 3 — Expenses  [status: TODO]
-Column-mapping bank CSV importer, rules categorization, recurring detection, budgets, UPI dedup.
-**Gate:** importer refuses unreadable rows (never coerces to 0); dedup asserted on fixture repeats.
+## Phase 3 — Expenses  [status: DONE — gate PASSED 2026-08-25]
+Bank CSV importer (delimiter sniffing, preamble/header detection, auto column mapping with
+override, split debit/credit or signed/Dr-Cr amounts, majority-vote date format), SHA-1
+row dedup with occurrence counter, rules categorization (substring + /regex/, manual wins),
+monthly rollups + budgets with over-limit alerts, recurring detection (≥3 hits, ~monthly,
+±25% amount), UPI RRN extraction + cross-account self-transfer pairing, statement balance
+→ balance_snapshot. /expenses screen with month nav, category editing, rules/budgets editors.
+**Gate evidence:** unreadable rows rejected with reasons and never coerced (tests: bad date,
+bad amount, empty desc, both-columns-filled, impossible 31/02); dedup asserted on fixture
+repeats at hash level AND against a real migrated temp DB (3 insert → 0 on re-import), and
+at runtime via the API (import#1 inserted 6, re-import inserted 0 / skipped 6). 118/118
+tests in 15 files; runtime smoke on a temp-DB instance: dry-run mapping correct, rule
+categorized at insert, budget over-limit rendered, SIP recurring detected, balance snapshot
+2026-06-10 flowed to the Map. (Real bank CSV runtime run pending the user's statement.)
 
 ## Phase 4 — Goals & planning  [status: TODO]
 Goal math with inflation, holdings→goal mapping, Monte Carlo (seeded PRNG), emergency-fund gauge,

@@ -9,7 +9,23 @@ Separate codebase from VYUHA Trade Journal; ingests VYUHA data one-way via its b
 Product rationale, deployment decision, and phase plan: the "VYUHA Atlas Blueprint" artifact
 (link in CLAUDE.md).
 
-## Phase 2 — Investments — DONE, gate PASSED (2026-08-25, latest)
+## Phase 3 — Expenses — DONE, gate PASSED (2026-08-25, latest)
+- Bank CSV importer: delimiter sniff, header under preamble junk, auto column mapping
+  (+API override), split debit/credit AND single signed/Dr-Cr amounts, majority-vote date
+  format (footer junk loses the vote, then rejects row-by-row). Unreadable rows REJECT with
+  reasons, never coerce (gate). Migration 0003: bank_transactions/expense_rules/budgets.
+- Dedup: sha1(account|date|amountPaise|normDesc|occurrence#) + unique index — re-import
+  skips all, same-day twins survive. Verified 3 ways: hash tests, temp-DB test, runtime
+  API (import#1: 6 inserted; re-import: 0 inserted / 6 skipped).
+- Rules (substring or /regex/, manual wins, re-apply endpoint), budgets + over-limit bars,
+  recurring detection (≥3, ~monthly, ±25%), UPI RRN + cross-account transfer pairing
+  (single-leg counts as spending on purpose — see DECISIONS), statement balance →
+  balance_snapshots → Map. /expenses screen with month nav + category editing.
+- 118/118 tests in 15 files; verify green. Runtime smoke ran on a TEMP DB (port 3101,
+  ATLAS_DB_PATH) — production data untouched; smoke DB deleted. Real bank CSV not yet
+  imported (user's statement pending) — production bank_transactions is empty.
+
+## Phase 2 — Investments — DONE, gate PASSED (2026-08-25, earlier)
 - CAS PDF import (CAMS+KFintech detailed, pdfjs-dist password unlock) → mf_holdings /
   mf_transactions / nav_history / allocation_targets (migration 0002, replace-by-source
   'cas', user assetClass/owner overrides survive re-import keyed folio+ISIN).
@@ -92,10 +108,13 @@ AGENTS.md ("End-of-session discipline"): verify green → update this file → c
 clean `git status`. `data/` (real encrypted financial data) is gitignored, never committed.
 
 ## Open work — next steps in order
-1. Phase 3 (expenses: bank CSV importer, rules categorization, budgets, UPI dedup) per ROADMAP.
-2. Off-machine backup target (copy encrypted snapshots to a second drive/cloud) — the 3-2-1
+1. Runtime-verify phase 3 against the user's REAL bank statement CSV (importer is live at
+   /import; needs a bank account created first on /accounts).
+2. Phase 4 (goals & planning: goal math with inflation, Monte Carlo seeded PRNG,
+   emergency-fund gauge) per ROADMAP.
+3. Off-machine backup target (copy encrypted snapshots to a second drive/cloud) — the 3-2-1
    gap; snapshots are already encrypted so any dumb storage works.
-3. Optional: passphrase-mode rekey flow on the System page (env-only today).
-4. Nice-to-have from phase 2: allocation targets are unset (user's book is all-equity today —
+4. Optional: passphrase-mode rekey flow on the System page (env-only today).
+5. Nice-to-have from phase 2: allocation targets are unset (user's book is all-equity today —
    set targets on /investments when debt/gold enter); NAV history chart; demat/equity CAS
    (NSDL/CDSL) is NOT parsed — only MF folios.
