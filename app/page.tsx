@@ -3,6 +3,7 @@ import { computeNetWorth } from "@/lib/analytics/networth";
 import { riskFence } from "@/lib/analytics/trading-insights";
 import { formatInrCompact, formatInr } from "@/lib/domain/money";
 import { listAccountsWithBalances } from "@/lib/queries/accounts";
+import { getMfBookValue } from "@/lib/queries/investments";
 import { getTradingFacts } from "@/lib/queries/trading";
 
 export const dynamic = "force-dynamic";
@@ -10,23 +11,38 @@ export const dynamic = "force-dynamic";
 export default function MapPage() {
   const rows = listAccountsWithBalances();
   const trading = getTradingFacts();
+  const mfBook = getMfBookValue();
 
-  // The trading book joins net worth as a derived asset line when imported.
-  const withTrading = trading.imported
-    ? [
-        ...rows,
-        {
-          accountId: -1,
-          name: "Trading book (VYUHA)",
-          kind: "trading",
-          category: "asset" as const,
-          owner: "self",
-          balance: trading.equity.equity,
-        },
-      ]
-    : rows;
-  const summary = computeNetWorth(withTrading);
-  const nonTradingAssets = computeNetWorth(rows).assets;
+  // Trading and MF books join net worth as derived asset lines when imported.
+  const derived = [
+    ...(trading.imported
+      ? [
+          {
+            accountId: -1,
+            name: "Trading book (VYUHA)",
+            kind: "trading",
+            category: "asset" as const,
+            owner: "self",
+            balance: trading.equity.equity,
+          },
+        ]
+      : []),
+    ...(mfBook
+      ? [
+          {
+            accountId: -2,
+            name: "Mutual funds (CAS)",
+            kind: "mutual_fund",
+            category: "asset" as const,
+            owner: "self",
+            balance: mfBook.value,
+          },
+        ]
+      : []),
+  ];
+  const withDerived = [...rows, ...derived];
+  const summary = computeNetWorth(withDerived);
+  const nonTradingAssets = computeNetWorth([...rows, ...derived.filter((d) => d.kind !== "trading")]).assets;
   const fence = trading.imported ? riskFence(trading.equity.equity, nonTradingAssets) : null;
 
   return (

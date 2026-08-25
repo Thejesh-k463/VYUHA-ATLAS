@@ -15,6 +15,13 @@
       "when": 1787674100723,
       "tag": "0001_calm_tyrannus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787678277335,
+      "tag": "0002_overrated_silver_fox",
+      "breakpoints": true
     }
   ]
 }

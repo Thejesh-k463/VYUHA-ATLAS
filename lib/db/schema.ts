@@ -163,6 +163,84 @@ export const tradingCashflows = sqliteTable(
   (t) => [index("trading_cashflows_source_idx").on(t.source)],
 );
 
+// ---- Phase 2: Investments (mutual funds) ----
+// NAV and units are REAL, not integer paise: NAV carries 4 decimal places and units
+// carry 3 — the paise invariant applies to money AMOUNTS, not per-unit rates
+// (docs/DECISIONS.md 2026-08-25, NAV/units precision).
+
+export const ASSET_CLASSES = ["equity", "debt", "hybrid", "gold", "other"] as const;
+export type AssetClass = (typeof ASSET_CLASSES)[number];
+
+// One row per folio+scheme pair found in a CAS. Replace-by-source ('cas'): a CAS
+// import wipes prior cas holdings+transactions and re-inserts (snapshot source).
+export const mfHoldings = sqliteTable(
+  "mf_holdings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    source: text("source").notNull(), // 'cas'
+    folio: text("folio").notNull(),
+    amc: text("amc").notNull(),
+    schemeName: text("scheme_name").notNull(),
+    isin: text("isin").notNull(),
+    amfiCode: text("amfi_code"), // resolved from AMFI NAVAll by ISIN; null until first NAV refresh
+    rta: text("rta"), // CAMS | KFINTECH (as printed in the CAS)
+    assetClass: text("asset_class").notNull().default("equity"),
+    owner: text("owner").notNull().default("self"),
+    openingUnits: real("opening_units").notNull().default(0),
+    closingUnits: real("closing_units").notNull().default(0), // CAS-stated closing balance (cross-check for lot math)
+    importBatchId: integer("import_batch_id")
+      .notNull()
+      .references(() => importBatches.id),
+  },
+  (t) => [uniqueIndex("mf_holdings_source_folio_isin_idx").on(t.source, t.folio, t.isin)],
+);
+
+export const mfTransactions = sqliteTable(
+  "mf_transactions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    holdingId: integer("holding_id")
+      .notNull()
+      .references(() => mfHoldings.id),
+    date: text("date").notNull(), // ISO yyyy-mm-dd
+    description: text("description").notNull(),
+    txType: text("tx_type").notNull(), // purchase | purchase_sip | redemption | switch_in | switch_out | dividend_reinvest | dividend_payout | segregation | tax_or_charge | misc
+    amount: moneyPaise("amount_paise"), // signed; null when the CAS row carries no amount
+    units: real("units"), // signed; null for non-unit rows (stamp duty, STT)
+    nav: real("nav"), // price per unit on the row, 4dp
+    unitBalance: real("unit_balance"),
+    importBatchId: integer("import_batch_id")
+      .notNull()
+      .references(() => importBatches.id),
+  },
+  (t) => [index("mf_transactions_holding_date_idx").on(t.holdingId, t.date)],
+);
+
+// NAV refresh is idempotent by construction: unique (isin, date) upsert.
+export const navHistory = sqliteTable(
+  "nav_history",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    isin: text("isin").notNull(),
+    date: text("date").notNull(), // ISO yyyy-mm-dd
+    nav: real("nav").notNull(),
+    source: text("source").notNull(), // mfapi | amfi
+    createdAt: text("created_at").notNull().default(now),
+  },
+  (t) => [uniqueIndex("nav_history_isin_date_idx").on(t.isin, t.date)],
+);
+
+export const allocationTargets = sqliteTable(
+  "allocation_targets",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    assetClass: text("asset_class").notNull(),
+    targetPct: real("target_pct").notNull(), // 0..100
+    driftBandPct: real("drift_band_pct").notNull().default(5), // alert when |actual − target| exceeds this
+  },
+  (t) => [uniqueIndex("allocation_targets_class_idx").on(t.assetClass)],
+);
+
 export const importBatches = sqliteTable("import_batches", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   source: text("source").notNull(),

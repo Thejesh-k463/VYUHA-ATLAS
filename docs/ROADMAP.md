@@ -44,10 +44,21 @@ the Map; planning view that refuses projections under 6 dated months. /trading s
 waterfall −29,739.92 − 91,160.61 = −1,20,900.53 exact, STT 89% of all-trade charges, fence
 renders breached (only trading mapped so far — honest).
 
-## Phase 2 — Investments  [status: TODO]
-CAS → casparser-equivalent MF import, holdings/lots, AMFI/mfapi NAV refresh, XIRR/CAGR,
-allocation targets, drift alerts, corporate actions.
-**Gate:** XIRR against known-good fixtures (±1bp); NAV refresh idempotent; lot math FIFO-tested.
+## Phase 2 — Investments  [status: DONE — gate PASSED 2026-08-25]
+CAS (CAMS/KFintech detailed PDF, password-protected) → full SIP-history MF import;
+holdings/lots with FIFO + realized gains; NAV refresh (mfapi.in primary via ISIN→code
+resolution, AMFI NAVAll fallback); XIRR/CAGR per holding + portfolio; allocation targets
+with drift alerts; /investments screen; MF book on the Map. Segregation/invalid-redemption
+rows handled (zero-cost lots / no-money misc); dividend payout/reinvest classified.
+**Gate evidence:** XIRR fixtures ±1bp incl. the Excel-documented case (0.373362535) and
+analytic cases; FIFO tested (partial-lot consumption, oversell warning, zero-cost
+segregated units, switch round-trip); NAV refresh idempotent by construction (unique
+isin+date upsert) AND verified live — two consecutive refreshes each upserted 9 rows, no
+growth. Real-data run: 10 holdings / 501 transactions imported; parsed cost 374,011.26
+and market 450,211.02 both match the CAS's own summary to the paisa; FIFO units match
+CAS closing units on all 10 holdings; 9/9 NAVs live from mfapi; portfolio XIRR 14.1%.
+89/89 tests green. (Equity corporate actions beyond MF events belong to the demat/
+equity phase — MF-side actions (segregation, switches, IDCW) are covered.)
 
 ## Phase 3 — Expenses  [status: TODO]
 Column-mapping bank CSV importer, rules categorization, recurring detection, budgets, UPI dedup.

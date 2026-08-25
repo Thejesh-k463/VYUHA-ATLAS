@@ -92,3 +92,48 @@ in VYUHA's own unencrypted DB, so interim exposure is not increased.
 ## 2026-08-25 — Port 3100
 
 VYUHA desktop binds 127.0.0.1:3000. Atlas dev/start binds 3100 so both run simultaneously.
+
+## 2026-08-25 — MF NAV and units are REAL columns, not integer paise
+
+NAVs carry 4 decimal places (₹116.3398, ₹463.9220 live in the user's CAS) and units 3.
+Integer paise would silently truncate NAV precision; the paise invariant (AGENTS.md 1)
+applies to money AMOUNTS (mf_transactions.amount_paise stays moneyPaise), not to
+per-unit rates. Same rule as annualRatePct.
+
+## 2026-08-25 — CAS import is replace-by-source with override survival
+
+A detailed CAS is a complete-history snapshot, so `source='cas'` rows are wiped and
+re-inserted per import (same rationale as the VYUHA envelope). User edits on holdings
+(assetClass, owner) are re-applied across the wipe, keyed by folio+ISIN. Consequence
+pinned in the UI: always import a FULL-history CAS, never a partial period — a partial
+statement would silently truncate SIP history.
+
+## 2026-08-25 — CAS closing NAV seeds nav_history
+
+The "Closing Unit Balance" line prints NAV, date, cost and market value per scheme.
+These are observed values, so they seed nav_history (source='cas') at import — the
+portfolio is valued offline before the first network NAV refresh. The import response
+reconciles Σ(parsed cost/market) against the CAS's own PORTFOLIO SUMMARY and reports
+any gap; on the user's real CAS both matched to the paisa (374,011.26 / 450,211.02).
+
+## 2026-08-25 — XIRR flow conventions (money-weighted, pocket view)
+
+External flows: purchase/SIP/switch_in = −amount, redemption/switch_out = −amount
+(CAS prints these negative, so this yields a positive inflow), dividend_payout = +|amount|;
+terminal value = units × latest NAV on the NAV date. Dividend reinvest and segregation
+move no external money (units enter FIFO at their stated cost / zero). Stamp duty and
+STT are NOT separate flows: purchase rows already exclude them, redemption amounts are
+already net — adding the tax rows would double-count (they are tracked as chargesTotal
+instead). Basis: 365-day years, Excel XIRR convention; fixtures pinned to ±1bp.
+
+## 2026-08-25 — AMFI NAVAll.txt moved hosts and grew to 8 fields (verified live)
+
+www.amfiindia.com/spages/NAVAll.txt now returns an HTML "Document Moved" page
+(non-redirect status — fetch does not follow); the live file is at
+portal.amfiindia.com/spages/NAVAll.txt with EIGHT fields
+(...;Scheme Name;Plan;Option;NAV;Date), not the 6 the older format had. Parser accepts
+both (first 3 + last 2 fields are positionally stable); the refresh route tries portal
+then www and treats a zero-row parse as failure so an HTML body can never look like
+success. mfapi.in remains primary per-scheme (codes resolved from NAVAll by ISIN);
+NAV refresh is idempotent via unique (isin, date) upsert — verified live, two
+consecutive refreshes both upserted 9 rows with no growth.
