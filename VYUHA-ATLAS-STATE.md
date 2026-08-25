@@ -1,6 +1,18 @@
 # VYUHA-ATLAS-STATE — session handoff
 
-Updated: 2026-08-25 (phase 2 session).
+Updated: 2026-08-25 (phases 2, 3 and 4 shipped in one session).
+
+## Phase 4 — Goals & planning — DONE, gate PASSED (2026-08-25, latest)
+- Goals CRUD + asset→goal mappings (mf_holding | account | trading, share %), inflated
+  targets, required-SIP (effective monthly rate, month-end annuity, loop-closes to the
+  paisa), Monte Carlo (mulberry32 seeded, 2,000 paths — deterministic, gate), emergency
+  gauge (median burn from real bank months; refuses without data). /goals screen.
+  Migration 0004. 137/137 tests in 18 files.
+- Live-verified then cleaned up: mapped ₹7,60,608.96 exact (trading 100% + SBI 50%),
+  SIP ₹2,882.95/mo, MC 46% at exactly-required SIP (expected <50%: median<mean under
+  vol), identical across renders. Emergency gauge reads 0.5 months — honest artifact of
+  single-leg HDFC transfers counting as spending; fix by importing the HDFC statement
+  (auto-pairs) or categorizing those rows 'transfer'.
 
 ## What this project is
 **atlas · by VYUHA** — "Map everything you own." Local-first personal financial planner
@@ -111,10 +123,13 @@ AGENTS.md ("End-of-session discipline"): verify green → update this file → c
 clean `git status`. `data/` (real encrypted financial data) is gitignored, never committed.
 
 ## Open work — next steps in order
-1. Phase 4 (goals & planning: goal math with inflation, Monte Carlo seeded PRNG,
-   emergency-fund gauge) per ROADMAP — in progress this session.
-2. The SBI statement covers only 2025-03-25 → 2025-06-24; importing newer statements will
-   refresh the balance snapshot and give recurring detection more months to chew on.
+1. Phase 5 (unified tax pack: equity+MF+F&O FY view, Schedule 112A CSV, ICAI turnover,
+   advance-tax estimator, loss carry-forward; rates in a versioned config table) per ROADMAP.
+2. Import the user's HDFC statement — fixes the emergency gauge (SBI→HDFC transfers
+   currently count as spending, burn rate inflated) and enables cross-account UPI pairing.
+3. The SBI statement covers only 2025-03-25 → 2025-06-24; newer statements refresh the
+   balance snapshot and give recurring detection more months.
+4. User has no goals defined yet — /goals is live and empty.
 3. Off-machine backup target (copy encrypted snapshots to a second drive/cloud) — the 3-2-1
    gap; snapshots are already encrypted so any dumb storage works.
 4. Optional: passphrase-mode rekey flow on the System page (env-only today).

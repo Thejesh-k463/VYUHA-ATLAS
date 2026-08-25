@@ -79,10 +79,19 @@ converted to CSV): 144/144 rows imported, 0 rejected; running-balance chain veri
 ₹2,39,556.07 on 2025-06-24); re-import inserted 0 / skipped 144; balance snapshot flowed
 to the Map (net worth ₹13.31L = 6.41L trading + 4.50L MF + 2.40L SBI, exact).
 
-## Phase 4 — Goals & planning  [status: TODO]
-Goal math with inflation, holdings→goal mapping, Monte Carlo (seeded PRNG), emergency-fund gauge,
-risk-capital fence.
-**Gate:** Monte Carlo deterministic under fixed seed; goal projections match hand-computed fixtures.
+## Phase 4 — Goals & planning  [status: DONE — gate PASSED 2026-08-25]
+Goals (target in today's rupees, inflates to target date), asset→goal mapping with share %
+(MF holdings, accounts, trading book), required-SIP math (effective monthly rate, month-end
+annuity), seeded Monte Carlo (mulberry32, 2,000 paths, success odds + p10/p50/p90),
+emergency-fund gauge from real bank-import burn rate. /goals screen; migration 0004.
+Risk-capital fence shipped earlier (phase 1.5, on the Map).
+**Gate evidence:** Monte Carlo deterministic under fixed seed (byte-identical results in
+tests AND identical success % across two live page renders); goal projections match
+hand-computed fixtures (10L at 6%×10y = 17,90,847.70; 1L at 12%×120mo = 3,10,584.82;
+zero-rate SIP exact; FV closes the loop to the paisa). 137/137 tests in 18 files. Live:
+goal mapped trading 100% + SBI 50% = ₹7,60,608.96 exact, SIP ₹2,882.95/mo, success 46%
+at exactly-required SIP (expected: just under 50% — median < mean under vol); test goal
+deleted after verification, production data clean.
 
 ## Phase 5 — Unified tax pack  [status: TODO]
 Equity+MF+F&O FY view, Schedule 112A CSV (portal template), ICAI turnover + audit verdict,

@@ -294,6 +294,38 @@ export const budgets = sqliteTable(
   (t) => [uniqueIndex("budgets_category_idx").on(t.category)],
 );
 
+// ---- Phase 4: Goals & planning ----
+
+export const goals = sqliteTable("goals", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  targetAmount: moneyPaise("target_amount_paise").notNull(), // in TODAY's rupees
+  targetDate: text("target_date").notNull(), // ISO yyyy-mm-dd
+  inflationPct: real("inflation_pct").notNull().default(6), // % p.a., inflates target to targetDate
+  expectedReturnPct: real("expected_return_pct").notNull().default(11), // % p.a. on mapped corpus + SIP
+  volatilityPct: real("volatility_pct").notNull().default(14), // % p.a., Monte Carlo sigma
+  createdAt: text("created_at").notNull().default(now),
+  archivedAt: text("archived_at"),
+});
+
+export const GOAL_ASSET_TYPES = ["mf_holding", "account", "trading"] as const;
+export type GoalAssetType = (typeof GOAL_ASSET_TYPES)[number];
+
+// Earmark a share of an asset to a goal. refId: mf_holdings.id | accounts.id | 0 (trading book).
+export const goalMappings = sqliteTable(
+  "goal_mappings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    goalId: integer("goal_id")
+      .notNull()
+      .references(() => goals.id),
+    assetType: text("asset_type").notNull(),
+    refId: integer("ref_id").notNull(),
+    sharePct: real("share_pct").notNull().default(100), // 0..100 of the asset's current value
+  },
+  (t) => [index("goal_mappings_goal_idx").on(t.goalId)],
+);
+
 export const importBatches = sqliteTable("import_batches", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   source: text("source").notNull(),

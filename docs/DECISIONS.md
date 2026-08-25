@@ -169,3 +169,30 @@ A balance-bearing import records one snapshot (source 'import') at the statement
 latest dated row, so the Map follows the bank balance without manual entry. Recurring
 detection: ≥3 debits of one merchant key, median gap 26–35 days, every amount within
 ±25% of the median — SIPs/rent/subscriptions qualify; ad-hoc spending does not.
+
+## 2026-08-25 — Goal math conventions: effective monthly rate, month-end SIP
+
+Rates are % p.a.; monthly compounding uses the EFFECTIVE monthly rate (1+r)^(1/12)−1 so
+12%/yr compounds to exactly 12%/yr (not 12.68% as r/12 would). SIP lands month-end
+(ordinary annuity). Targets are entered in TODAY's rupees and inflate to the target date.
+Horizon in months uses mean month length (30.4375 days). requiredMonthlySip closes the
+loop exactly: FV(corpus)+FV(sip) = inflated target to the paisa (pinned in tests).
+
+## 2026-08-25 — Monte Carlo: mulberry32 seed, arithmetic monthly Normal returns
+
+PRNG is mulberry32 (no Math.random anywhere — the phase gate is determinism under a fixed
+seed). Monthly returns i.i.d. Normal(mean = r/12, sd = σ/√12), Box–Muller, floor at −100%
+per month, SIP month-end, 2,000 paths. This is a funding gauge, not a market model — the
+arithmetic convention slightly overstates drift vs the effective-rate deterministic math;
+consequence: at exactly the required SIP, success odds land just under 50% (median < mean
+under vol), observed 46% live. Seed per goal = (id×7919 + months) so a page render is
+reproducible but the simulation refreshes as the horizon shrinks.
+
+## 2026-08-25 — Emergency gauge refuses without real burn data; single-leg transfers bite
+
+Gauge = liquid (bank/cash/fd accounts with known balances) ÷ median spend of up to 6
+completed months of imported bank data; no data → no gauge (fabricating a burn rate is
+worse than none). Live consequence on real data: SBI-only import counts transfers to the
+user's HDFC account as spending (see the single-leg transfer decision), yielding 0.5
+months covered — importing the HDFC statement (auto-pairing) or manually categorizing
+those rows as 'transfer' corrects the burn rate. Deliberately left honest.
