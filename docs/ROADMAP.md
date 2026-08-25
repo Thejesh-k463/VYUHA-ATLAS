@@ -73,7 +73,11 @@ repeats at hash level AND against a real migrated temp DB (3 insert → 0 on re-
 at runtime via the API (import#1 inserted 6, re-import inserted 0 / skipped 6). 118/118
 tests in 15 files; runtime smoke on a temp-DB instance: dry-run mapping correct, rule
 categorized at insert, budget over-limit rendered, SIP recurring detected, balance snapshot
-2026-06-10 flowed to the Map. (Real bank CSV runtime run pending the user's statement.)
+2026-06-10 flowed to the Map. Real-data run (2026-08-25, SBI savings statement PDF →
+converted to CSV): 144/144 rows imported, 0 rejected; running-balance chain verified
+144/144 against the statement's own printed balances (opening ₹5,26,012.85 → closing
+₹2,39,556.07 on 2025-06-24); re-import inserted 0 / skipped 144; balance snapshot flowed
+to the Map (net worth ₹13.31L = 6.41L trading + 4.50L MF + 2.40L SBI, exact).
 
 ## Phase 4 — Goals & planning  [status: TODO]
 Goal math with inflation, holdings→goal mapping, Monte Carlo (seeded PRNG), emergency-fund gauge,

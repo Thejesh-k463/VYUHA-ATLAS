@@ -22,8 +22,11 @@ Product rationale, deployment decision, and phase plan: the "VYUHA Atlas Bluepri
   (single-leg counts as spending on purpose — see DECISIONS), statement balance →
   balance_snapshots → Map. /expenses screen with month nav + category editing.
 - 118/118 tests in 15 files; verify green. Runtime smoke ran on a TEMP DB (port 3101,
-  ATLAS_DB_PATH) — production data untouched; smoke DB deleted. Real bank CSV not yet
-  imported (user's statement pending) — production bank_transactions is empty.
+  ATLAS_DB_PATH) — then REAL-DATA verified: user's SBI savings statement (PDF, converted
+  via scratch script) → account "SBI Savings (…3868)" id 1, 144/144 rows in, 0 rejected,
+  balance chain 144/144 exact, re-import 0/144 (dedup), snapshot ₹2,39,556.07 @2025-06-24
+  → Map ₹13.31L total. PDF→CSV conversion lives in scratch only; in-app PDF statement
+  parsing is a possible later enhancement (SBI netbanking also exports CSV directly).
 
 ## Phase 2 — Investments — DONE, gate PASSED (2026-08-25, earlier)
 - CAS PDF import (CAMS+KFintech detailed, pdfjs-dist password unlock) → mf_holdings /
@@ -108,10 +111,10 @@ AGENTS.md ("End-of-session discipline"): verify green → update this file → c
 clean `git status`. `data/` (real encrypted financial data) is gitignored, never committed.
 
 ## Open work — next steps in order
-1. Runtime-verify phase 3 against the user's REAL bank statement CSV (importer is live at
-   /import; needs a bank account created first on /accounts).
-2. Phase 4 (goals & planning: goal math with inflation, Monte Carlo seeded PRNG,
-   emergency-fund gauge) per ROADMAP.
+1. Phase 4 (goals & planning: goal math with inflation, Monte Carlo seeded PRNG,
+   emergency-fund gauge) per ROADMAP — in progress this session.
+2. The SBI statement covers only 2025-03-25 → 2025-06-24; importing newer statements will
+   refresh the balance snapshot and give recurring detection more months to chew on.
 3. Off-machine backup target (copy encrypted snapshots to a second drive/cloud) — the 3-2-1
    gap; snapshots are already encrypted so any dumb storage works.
 4. Optional: passphrase-mode rekey flow on the System page (env-only today).
