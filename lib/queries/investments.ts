@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   allocationTargets,
@@ -7,6 +7,7 @@ import {
   mfHoldings,
   mfTransactions,
   navHistory,
+  nominees,
   type AssetClass,
 } from "@/lib/db/schema";
 import type { CasParseOk } from "@/lib/import/cas-parse";
@@ -25,6 +26,7 @@ export function replaceCasFacts(parse: CasParseOk, fileName: string | null): { h
     // Preserve user overrides across the wipe.
     const prior = tx
       .select({
+        id: mfHoldings.id,
         folio: mfHoldings.folio,
         isin: mfHoldings.isin,
         assetClass: mfHoldings.assetClass,
@@ -35,15 +37,22 @@ export function replaceCasFacts(parse: CasParseOk, fileName: string | null): { h
       .all();
     const overrides = new Map(prior.map((p) => [`${p.folio}::${p.isin}`, p]));
 
-    const priorIds = tx
-      .select({ id: mfHoldings.id })
-      .from(mfHoldings)
-      .where(eq(mfHoldings.source, SOURCE))
+    // Manual nominee rows survive the wipe re-keyed by folio+ISIN (same rule as
+    // the holding overrides); CAS-sourced nominee rows are replace-by-source.
+    const keyByOldId = new Map(prior.map((p) => [p.id, `${p.folio}::${p.isin}`]));
+    const manualNoms = tx
+      .select()
+      .from(nominees)
+      .where(and(eq(nominees.assetType, "mf_holding"), eq(nominees.source, "manual")))
       .all()
-      .map((r) => r.id);
+      .map((n) => ({ ...n, key: keyByOldId.get(n.refId) ?? null }))
+      .filter((n) => n.key !== null);
+
+    const priorIds = prior.map((r) => r.id);
     if (priorIds.length > 0) {
       tx.delete(mfTransactions).where(inArray(mfTransactions.holdingId, priorIds)).run();
     }
+    tx.delete(nominees).where(eq(nominees.assetType, "mf_holding")).run();
     tx.delete(mfHoldings).where(eq(mfHoldings.source, SOURCE)).run();
 
     const batch = tx
@@ -64,6 +73,7 @@ export function replaceCasFacts(parse: CasParseOk, fileName: string | null): { h
     const importBatchId = batch[0].id;
 
     let txCount = 0;
+    const newIdByKey = new Map<string, number>();
     for (const h of parse.holdings) {
       const override = overrides.get(`${h.folio}::${h.isin}`);
       const inserted = tx
@@ -84,6 +94,13 @@ export function replaceCasFacts(parse: CasParseOk, fileName: string | null): { h
         .returning({ id: mfHoldings.id })
         .all();
       const holdingId = inserted[0].id;
+      newIdByKey.set(`${h.folio}::${h.isin}`, holdingId);
+      // CAS prints nominee NAMES only — sharePct stays null, never fabricated.
+      for (const name of h.nominees) {
+        tx.insert(nominees)
+          .values({ assetType: "mf_holding", refId: holdingId, name, sharePct: null, source: SOURCE })
+          .run();
+      }
       for (const t of h.transactions) {
         tx.insert(mfTransactions)
           .values({
@@ -107,6 +124,22 @@ export function replaceCasFacts(parse: CasParseOk, fileName: string | null): { h
           .onConflictDoUpdate({
             target: [navHistory.isin, navHistory.date],
             set: { nav: h.casNav, source: "cas" },
+          })
+          .run();
+      }
+    }
+    // Re-attach surviving manual nominee rows to the fresh holding ids.
+    for (const n of manualNoms) {
+      const newId = newIdByKey.get(n.key!);
+      if (newId !== undefined) {
+        tx.insert(nominees)
+          .values({
+            assetType: "mf_holding",
+            refId: newId,
+            name: n.name,
+            relationship: n.relationship,
+            sharePct: n.sharePct,
+            source: "manual",
           })
           .run();
       }

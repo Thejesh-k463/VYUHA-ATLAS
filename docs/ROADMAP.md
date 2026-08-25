@@ -111,9 +111,57 @@ resolves 15/10% by sale date vs FY25-26 20/12.5%; 112A files: 17 rows (FY25-26) 
 FY with loud warnings; envelope re-import populated per-trade facts with Map equity unchanged
 to the paisa (₹6,40,830.92).
 
-## Phase 6 — Protection & estate  [status: TODO]
-Insurance registry + adequacy, nominee registry + mismatch report, encrypted death-pack export,
-annual archive packs.
+## Phase 6 — Protection & estate  [status: DONE — gate PASSED 2026-08-26]
+Insurance policy registry (life/health/motor/other: insurer, policy no, sum assured, premium +
+frequency, renewal date) with renewal reminders (Map strip + /protection). Life-cover adequacy
+check computed from REAL data already in the DB (outstanding liabilities, active goal targets
+inflated, median monthly burn from bank imports, existing corpus) with every component tagged
+real-data | assumption | rule-of-thumb on screen — a missing input renders as missing, never 0,
+and no rule of thumb appears unlabeled. Nominee registry across ALL assets (insurance, MF
+folios — CAS "Nominee 1/2/3" lines now parsed at import, bank accounts, trading book) with a
+missing/mismatch report. Encrypted death-pack export: one self-contained HTML file a family
+member opens in a browser with a passphrase (scrypt N=2^17/r=8/p=1 + AES-256-GCM — the exact
+keyfile passphrase-mode params; inlined scrypt-js + WebCrypto). Annual archive packs (per-FY
+JSON download bundling that year's figures).
+**Gate (defined 2026-08-26 BEFORE coding — phase is DONE only when every line is observed):**
+1. `npm run verify` green (typecheck + all unit tests + build).
+2. Adequacy math asserted against hand-computed fixtures (liabilities + inflated goals +
+   years×annual expenses − counted assets = required cover; gap = required − existing cover),
+   including the no-expense-data case: that component reports missing, the total is flagged
+   incomplete, nothing is fabricated; the income-multiple figure appears ONLY when income is
+   user-entered and ONLY labeled as a rule of thumb.
+3. Death pack: encrypt → decrypt round-trip byte-identical at production scrypt params; wrong
+   passphrase REFUSED (GCM auth failure, no partial plaintext); the ciphertext embedded in the
+   generated HTML extracts and decrypts to the byte-identical payload; browser scrypt lib
+   output pinned equal to node's scrypt on fixture vectors; no plaintext death-pack ever
+   touches disk (module is fs-free — pinned by test; the route streams from memory).
+4. Nominee report asserted on fixtures: missing nominee per asset, share sums ≠ 100 flagged,
+   name variants (case/spacing/dots) grouped in the census; CAS nominee lines parse to names
+   (empty slots and "Not Registered" → none).
+5. Renewal classification fixtures (overdue / due ≤30 days / upcoming ≤90 days / ok).
+6. Archive pack assembly fixtures: FY totals and counts propagate exactly; unknowns stay null.
+7. Runtime on the real DB (port 3100): adequacy shows the real liability/goal/burn figures;
+   nominee report runs against real holdings; a death pack generated with a test passphrase
+   decrypts in an actual browser; archive pack downloads for a real FY; any test rows created
+   for verification are deleted afterwards.
+**Gate evidence (observed 2026-08-26):** `npm run verify` green — 182 tests in 23 files, build
+clean. Adequacy fixtures exact (85,90,847.70 required / 60,90,847.70 gap; missing-expense case
+excludes the component and flags LOWER BOUND; rule-of-thumb null without stated income). Death
+pack: round-trip byte-identical at N=2^17; wrong passphrase and tampered ciphertext both throw;
+HTML-embedded envelope extracts and decrypts byte-identical with zero plaintext in the file
+(grep-verified on a real 29KB pack); scrypt-js == node scrypt on fixture vectors; module pinned
+fs-free by test. Nominee fixtures: missing/shares≠100/name-variant census all asserted; CAS
+nominee lines parse (indexed slots, Not Registered, folio-level placement). Renewal boundaries
+−1/0/30/31/90/91 days asserted. Archive fixtures: totals/counts propagate, unknowns stay null,
+bad FY label refused. Runtime on the REAL DB: required cover ₹9,34,80,018.99 = 0 liabilities +
+0 goals + ₹9,48,10,617 (median burn from 4 real months × 12 × 15y) − ₹13,30,598.01 counted
+assets (= the Map's figure exactly); nominee report listed all 10 real assets missing nominees;
+test policy (₹50L life) surfaced "renewal in 11d" on the Map, flowed into the estate pack, and
+was deleted after; estate pack decrypted IN A REAL BROWSER via embedded scrypt-js + WebCrypto
+(all 8 active folios, SBI ₹2,39,556.07, trading ₹6,40,830.92) and refused a wrong passphrase
+on screen; FY2025-26 archive pack: netWorth 13,30,598.01, MF LTCG 14,399.94 (the verified
+₹14,400), 0 dated trading periods in that FY (correct — trades are FY26-27 + undated), expense
+months 2025-04..06 only.
 
 ## Phase 7 — Behavioral bridge & reach  [status: TODO]
 Tilt↔spending correlation, cooling-off guards, Tailscale read-only PWA, Telegram digest, family view.

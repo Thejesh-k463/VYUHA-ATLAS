@@ -231,3 +231,50 @@ the slab-taxed bucket: a hybrid fund's equity share decides its regime and guess
 would be fabrication — the user reclassifies the holding if a fund is equity-oriented.
 Slab bucket taxes at the user-editable slab_assumption rate with the assumption stated
 on screen. F&O/intraday losses are shown as carry-forward candidates, never auto-set-off.
+
+## 2026-08-26 — Death pack is ONE self-contained HTML; crypto = keyfile passphrase params
+
+Deliverable: a single .html file family opens in any modern browser — embedded ciphertext +
+inlined scrypt-js (UMD, read from node_modules by the ROUTE at request time) + WebCrypto
+AES-GCM decrypt + a generic section renderer. Crypto matches lib/db/keyfile.ts passphrase mode
+exactly: scrypt(N=2^17, r=8, p=1, maxmem 256MB) → AES-256-GCM (12-byte IV, AAD
+"atlas-deathpack-v1"). Passphrases are NFC-normalized on BOTH sides so node and browser derive
+identical bytes. The plaintext payload exists only in route memory; lib/export/death-pack.ts is
+fs-free and a test pins that (no plaintext death pack can ever touch disk through that module).
+Compatibility is pinned by a test asserting scrypt-js syncScrypt == node scryptSync on fixture
+vectors. Note: WebCrypto needs a secure context — file:// and localhost both qualify; the
+in-app preview pane's data:-URL snapshot does NOT (found live; irrelevant to real usage).
+Rejected: encrypted .json needing the app to open (family may not have the app), and PBKDF2
+(WebCrypto-native but weaker than the scrypt the rest of Atlas uses).
+
+## 2026-08-26 — CAS nominees: names only, sharePct NULL, folio-level; manual rows survive re-import
+
+The CAS "Nominee 1/2/3:" line prints NAMES ONLY, so CAS-sourced nominee rows carry
+sharePct = NULL — storing 100% or an equal split would be fabrication. The nominee report
+treats an unstated share as unknown, not wrong: shares are judged (sum ≠ 100 flagged) only when
+every share on the asset is stated. Nominee lines are folio-level: one seen before the scheme
+header applies to every scheme section of that folio. On CAS re-import, cas-sourced nominee
+rows are replace-by-source with the holdings; MANUAL mf_holding nominee rows survive the wipe
+re-keyed by folio+ISIN (same mechanism as assetClass/owner overrides). Nominee names existing
+in a CAS imported BEFORE this parser change are not in the DB — a re-import is needed and the
+/protection screen says so.
+
+## 2026-08-26 — Life adequacy is needs-based with per-component basis tags; income is never derived
+
+required = liabilities (real) + Σ inflated active-goal targets (real) + years × 12 × median
+monthly burn (amount real, years a user assumption) − counted assets (MF + known account
+balances excluding property + trading equity). Every component renders with its basis
+(real-data | assumption | rule-of-thumb); a missing input renders "missing" and flags the total
+LOWER BOUND — never 0. Annual income is NOT derived from bank credits (salary vs transfers vs
+refunds is guesswork) — it is a user-stated assumption, and the N× income figure appears ONLY
+when stated, labeled rule of thumb. Burn basis is byte-identical to the emergency gauge (up to
+6 completed months, current month excluded) and therefore inherits the single-leg-transfer
+inflation until the HDFC statement is imported — deliberately honest, same as the gauge.
+
+## 2026-08-26 — "Today" is the UTC date everywhere, including renewal countdowns
+
+Screens compute todayIso as new Date().toISOString().slice(0,10) (established idiom since
+phase 1). Observed live: a renewal 10 IST-days away rendered "in 11d" before 05:30 IST because
+UTC was still the previous date. Kept as-is for consistency across every screen; renewal
+buckets are 30/90-day bands where ±1 day does not change decisions. Revisit only as an
+app-wide change, not per-screen.

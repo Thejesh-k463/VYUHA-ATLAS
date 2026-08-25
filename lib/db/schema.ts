@@ -376,6 +376,66 @@ export const lossCarryForward = sqliteTable("loss_carry_forward", {
   createdAt: text("created_at").notNull().default(now),
 });
 
+// ---- Phase 6: Protection & estate ----
+
+export const INSURANCE_KINDS = ["life", "health", "motor", "other"] as const;
+export type InsuranceKind = (typeof INSURANCE_KINDS)[number];
+
+export const PREMIUM_FREQUENCIES = ["yearly", "half_yearly", "quarterly", "monthly", "single"] as const;
+export type PremiumFrequency = (typeof PREMIUM_FREQUENCIES)[number];
+
+export const insurancePolicies = sqliteTable("insurance_policies", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind").notNull(), // life | health | motor | other
+  insurer: text("insurer").notNull(),
+  policyNo: text("policy_no").notNull(),
+  planName: text("plan_name"),
+  sumAssured: moneyPaise("sum_assured_paise").notNull(),
+  premium: moneyPaise("premium_paise").notNull(), // per premiumFrequency period
+  premiumFrequency: text("premium_frequency").notNull().default("yearly"),
+  renewalDate: text("renewal_date").notNull(), // next premium due / renewal, ISO yyyy-mm-dd
+  startDate: text("start_date"),
+  owner: text("owner").notNull().default("self"),
+  note: text("note"),
+  createdAt: text("created_at").notNull().default(now),
+  archivedAt: text("archived_at"),
+});
+
+export const NOMINEE_ASSET_TYPES = ["insurance", "mf_holding", "account", "trading"] as const;
+export type NomineeAssetType = (typeof NOMINEE_ASSET_TYPES)[number];
+
+// Nominee registry across ALL asset types. refId: insurance_policies.id |
+// mf_holdings.id | accounts.id | 0 (trading book). CAS-sourced rows are
+// replace-by-source with the CAS import; manual rows survive it (re-mapped by
+// folio+ISIN like the holding overrides).
+export const nominees = sqliteTable(
+  "nominees",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    assetType: text("asset_type").notNull(),
+    refId: integer("ref_id").notNull(),
+    name: text("name").notNull(),
+    relationship: text("relationship"),
+    sharePct: real("share_pct"), // 0..100; null = share not stated (a CAS prints names only — never fabricated)
+    source: text("source").notNull().default("manual"), // manual | cas
+    createdAt: text("created_at").notNull().default(now),
+  },
+  (t) => [index("nominees_asset_idx").on(t.assetType, t.refId)],
+);
+
+// Single row (id = 1): adequacy assumptions the user edits (every one surfaces
+// on screen as an ASSUMPTION — invariant 6) plus estate contacts/instructions
+// bundled into the death pack.
+export const protectionSettings = sqliteTable("protection_settings", {
+  id: integer("id").primaryKey(), // fixed 1
+  yearsOfExpenses: real("years_of_expenses").notNull().default(15),
+  annualIncome: moneyPaise("annual_income_paise"), // null until the user states it
+  incomeMultiple: real("income_multiple").notNull().default(10),
+  contactsJson: text("contacts_json"), // JSON [{name, relation, phone, note}]
+  instructions: text("instructions"),
+  updatedAt: text("updated_at").notNull().default(now),
+});
+
 export const importBatches = sqliteTable("import_batches", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   source: text("source").notNull(),

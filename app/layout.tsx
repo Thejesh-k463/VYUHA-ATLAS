@@ -19,6 +19,7 @@ const NAV = [
   { href: "/goals", label: "Goals" },
   { href: "/tax", label: "Tax" },
   { href: "/trading", label: "Trading" },
+  { href: "/protection", label: "Protect" },
   { href: "/accounts", label: "Accounts" },
   { href: "/import", label: "Import" },
   { href: "/system", label: "System" },

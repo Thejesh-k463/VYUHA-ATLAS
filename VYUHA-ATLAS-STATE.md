@@ -1,8 +1,31 @@
 # VYUHA-ATLAS-STATE — session handoff
 
-Updated: 2026-08-26 (phases 2–5 shipped across one session, 25–26 Aug).
+Updated: 2026-08-26 (phases 2–5 shipped 25–26 Aug; phase 6 shipped later on 26 Aug).
 
-## Phase 5 — Unified tax pack — DONE, gate PASSED (2026-08-26, latest)
+## Phase 6 — Protection & estate — DONE, gate PASSED (2026-08-26, latest)
+- /protection screen: insurance policy registry (life/health/motor/other; insurer, policy no,
+  sum assured, premium+frequency, renewal date, owner) with renewal reminders (overdue/≤30d)
+  on the Map too; life-cover adequacy (needs-based, every component tagged real-data |
+  assumption | rule-of-thumb, missing stays missing); nominee registry across ALL assets with
+  missing/shares≠100/name-variant report; encrypted death-pack export; per-FY archive packs
+  (/api/archive?fy=). Migration 0006 (insurance_policies, nominees, protection_settings).
+- Death pack = ONE self-contained HTML (embedded ciphertext + inlined scrypt-js + WebCrypto);
+  crypto = keyfile passphrase params exactly (scrypt N=2^17/r=8/p=1 + AES-256-GCM); plaintext
+  never touches disk (module fs-free, pinned by test). VERIFIED IN A REAL BROWSER on real data:
+  decrypted all 8 active folios + SBI ₹2,39,556.07 + trading ₹6,40,830.92; wrong passphrase
+  refused on screen. 182/182 tests in 23 files.
+- cas-parse now captures "Nominee 1/2/3:" lines (names only, sharePct NULL — never fabricated;
+  folio-level). **The current DB has NO CAS nominee names** (imported pre-change) — re-import
+  the CAS PDF to land them; manual MF nominee rows survive re-import keyed folio+ISIN.
+- Live adequacy: required ₹9,34,80,018.99 = 0 liabilities + 0 goals + ₹9,48,10,617 (median
+  burn from 4 real months × 12 × 15y) − ₹13,30,598.01 counted assets (= Map exactly). The burn
+  inherits the single-leg SBI→HDFC inflation (same basis as the emergency gauge, deliberate) —
+  importing the HDFC statement fixes both. Insurance registry is EMPTY — user's real policies
+  still need entering (test policy verified the full cycle and was deleted).
+- Trap pinned in DECISIONS: "today" is the UTC date app-wide (renewal countdown can read +1
+  day before 05:30 IST); WebCrypto needs a secure context (preview-pane data: snapshots lack it).
+
+## Phase 5 — Unified tax pack — DONE, gate PASSED (2026-08-26)
 - /tax screen: per-FY equity CG (MF FIFO legs ST/LT + delivery trades), F&O ICAI turnover
   (Σ|gross| per trade) + s44AB/s44AD verdict with reasons/assumptions, estimate + advance
   schedule, loss carry-forward ledger, versioned tax_rates table (seeded once, resolved
@@ -137,19 +160,24 @@ AGENTS.md ("End-of-session discipline"): verify green → update this file → c
 clean `git status`. `data/` (real encrypted financial data) is gitignored, never committed.
 
 ## Open work — next steps in order
-1. Phase 6 (protection & estate: insurance registry + adequacy, nominee registry +
-   mismatch report, encrypted death-pack export, annual archive packs) per ROADMAP.
-2. Import the user's HDFC statement — fixes the emergency gauge (SBI→HDFC transfers
-   currently count as spending, burn rate inflated) and enables cross-account UPI pairing.
+1. Enter the user's REAL insurance policies on /protection (registry is empty; adequacy
+   currently shows cover ₹0) and re-import the CAS PDF so nominee names land (parser now
+   captures them; pre-change import has none). Then set assumptions (years=15 default,
+   income unstated) to taste.
+2. Import the user's HDFC statement — fixes the emergency gauge AND the adequacy expense
+   component (SBI→HDFC transfers currently count as spending, burn rate inflated) and
+   enables cross-account UPI pairing.
 3. Data-quality items the tax pack surfaced: 57 undated Dhan delivery trades + 1 undated
    F&O trade excluded from every FY — adding dates in VYUHA and re-importing fixes; edit
    the slab_assumption tax_rates row (default 30%) to the real marginal slab.
 4. The SBI statement covers only 2025-03-25 → 2025-06-24; newer statements refresh the
    balance snapshot and give recurring detection more months.
-5. User has no goals defined yet — /goals is live and empty.
-3. Off-machine backup target (copy encrypted snapshots to a second drive/cloud) — the 3-2-1
-   gap; snapshots are already encrypted so any dumb storage works.
-4. Optional: passphrase-mode rekey flow on the System page (env-only today).
-5. Nice-to-have from phase 2: allocation targets are unset (user's book is all-equity today —
+5. User has no goals defined yet — /goals is live and empty (goals feed adequacy too).
+6. Phase 7 (behavioral bridge & reach) per ROADMAP.
+7. Off-machine backup target (copy encrypted snapshots to a second drive/cloud) — the 3-2-1
+   gap; snapshots are already encrypted so any dumb storage works. (Storing a death pack +
+   archive packs there too now covers the estate angle.)
+8. Optional: passphrase-mode rekey flow on the System page (env-only today).
+9. Nice-to-have from phase 2: allocation targets are unset (user's book is all-equity today —
    set targets on /investments when debt/gold enter); NAV history chart; demat/equity CAS
    (NSDL/CDSL) is NOT parsed — only MF folios.

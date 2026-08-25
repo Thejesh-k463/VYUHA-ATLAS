@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyCasTx, parseCasText } from "@/lib/import/cas-parse";
+import { classifyCasTx, parseCasText, parseNomineeLine } from "@/lib/import/cas-parse";
 
 // Fabricated fixture reproducing the REAL layout of a CAMS+KFintech detailed CAS
 // (wrapped Registrar line, page furniture mid-scheme, parenthesised negatives,
@@ -104,6 +104,22 @@ describe("parseCasText", () => {
     expect(beta.transactions.find((t) => t.units === -40)?.txType).toBe("switch_out");
   });
 
+  it("captures nominee names per folio; a folio without the line gets none", () => {
+    if (!result.ok) return;
+    expect(result.holdings[0].nominees).toEqual(["SOMEONE", "SOMEONE ELSE"]);
+    expect(result.holdings[1].nominees).toEqual([]);
+  });
+
+  it("applies a nominee line printed before the scheme header (folio level)", () => {
+    const reordered = [...FIXTURE];
+    const [nomLine] = reordered.splice(17, 1); // move "Nominee 1: ..." to just after the folio line
+    reordered.splice(14, 0, nomLine);
+    const r = parseCasText(reordered);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.holdings[0].nominees).toEqual(["SOMEONE", "SOMEONE ELSE"]);
+  });
+
   it("emits no warnings on a clean statement", () => {
     if (!result.ok) return;
     expect(result.warnings).toHaveLength(0);
@@ -127,6 +143,20 @@ describe("parseCasText", () => {
     if (!r.ok) return;
     expect(r.holdings).toHaveLength(2);
     expect(r.holdings[0].transactions).toHaveLength(7);
+  });
+});
+
+describe("parseNomineeLine", () => {
+  it("splits indexed nominees and drops empty slots", () => {
+    expect(parseNomineeLine("Nominee 1: A KUMAR Nominee 2: B. DEVI Nominee 3:")).toEqual(["A KUMAR", "B. DEVI"]);
+  });
+  it("treats Not Registered as no nominee", () => {
+    expect(parseNomineeLine("Nominee 1: Not Registered Nominee 2: Nominee 3:")).toEqual([]);
+    expect(parseNomineeLine("Nominee: NOT REGISTERED")).toEqual([]);
+  });
+  it("cuts trailing PAN/KYC furniture and ignores non-nominee lines", () => {
+    expect(parseNomineeLine("Nominee: SOMEONE KYC: OK PAN: OK")).toEqual(["SOMEONE"]);
+    expect(parseNomineeLine("Opening Unit Balance: 0.000")).toEqual([]);
   });
 });
 

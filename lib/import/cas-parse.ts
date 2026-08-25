@@ -40,6 +40,8 @@ export interface CasHolding {
   isin: string;
   rta: string | null;
   advisor: string | null;
+  /** Nominee names as printed on the folio's "Nominee 1/2/3:" line; [] when none registered. */
+  nominees: string[];
   openingUnits: number;
   closingUnits: number;
   /** NAV printed on the Closing Unit Balance line — seeds nav_history without a network call. */
@@ -105,7 +107,19 @@ const OPENING_RE = /^Opening Unit Balance:\s*([\d,.]+)/;
 const CLOSING_RE =
   /^Closing Unit Balance:\s*([\d,.]+)\s*NAV on (\d{2}-[A-Za-z]{3}-\d{4}):\s*INR\s*([\d,.]+)\s*Total Cost Value:\s*([\d,.]+)\s*Market Value on \d{2}-[A-Za-z]{3}-\d{4}:\s*INR\s*([\d,.]+)/;
 const PERIOD_RE = /^(\d{2}-[A-Za-z]{3}-\d{4}) To (\d{2}-[A-Za-z]{3}-\d{4})$/;
+const NOMINEE_SPLIT_RE = /Nominee\s*\d*\s*:/i;
 const SUMMARY_ROW_RE = /^(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})$/;
+
+/** "Nominee 1: A B Nominee 2: C Nominee 3:" → ["A B", "C"]. Empty slots and
+ *  "Not Registered" yield nothing; trailing PAN/KYC furniture is cut off. */
+export function parseNomineeLine(line: string): string[] {
+  if (!NOMINEE_SPLIT_RE.test(line)) return [];
+  return line
+    .split(NOMINEE_SPLIT_RE)
+    .slice(1) // text before the first "Nominee N:" is not a name
+    .map((chunk) => chunk.split(/\s*(?:KYC|PAN)\s*:/i)[0].trim())
+    .filter((name) => name.length > 0 && !/^not\s+registered$/i.test(name));
+}
 
 export function classifyCasTx(description: string, hasUnits: boolean): CasTxType {
   const d = description.toLowerCase();
@@ -167,9 +181,16 @@ export function parseCasText(lines: string[]): CasParseOk | CasParseError {
 
   // Pass 2 — folio/scheme sections.
   const holdingsByKey = new Map<string, CasHolding>();
+  // Nominees are folio-level in a CAS; a line seen before the scheme header is
+  // held here and applied to every scheme section of that folio.
+  const folioNominees = new Map<string, string[]>();
   let currentAmc = "Unknown AMC";
   let currentFolio: string | null = null;
   let current: CasHolding | null = null;
+
+  const mergeNominees = (target: string[], names: string[]) => {
+    for (const n of names) if (!target.includes(n)) target.push(n);
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -217,6 +238,7 @@ export function parseCasText(lines: string[]): CasParseOk | CasParseError {
             isin,
             rta,
             advisor: sm[4]?.trim() || null,
+            nominees: [...(folioNominees.get(currentFolio) ?? [])],
             openingUnits: 0,
             closingUnits: 0,
             casNav: null,
@@ -227,6 +249,19 @@ export function parseCasText(lines: string[]): CasParseOk | CasParseError {
           };
           holdingsByKey.set(key, current);
         }
+      }
+      continue;
+    }
+
+    if (NOMINEE_SPLIT_RE.test(line)) {
+      const names = parseNomineeLine(line);
+      if (current) {
+        mergeNominees(current.nominees, names);
+      }
+      if (currentFolio) {
+        const pending = folioNominees.get(currentFolio) ?? [];
+        mergeNominees(pending, names);
+        folioNominees.set(currentFolio, pending);
       }
       continue;
     }

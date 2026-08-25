@@ -4,6 +4,7 @@ import { riskFence } from "@/lib/analytics/trading-insights";
 import { formatInrCompact, formatInr } from "@/lib/domain/money";
 import { listAccountsWithBalances } from "@/lib/queries/accounts";
 import { getMfBookValue } from "@/lib/queries/investments";
+import { getRenewalReminders } from "@/lib/queries/protection";
 import { getTradingFacts } from "@/lib/queries/trading";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export default function MapPage() {
   const rows = listAccountsWithBalances();
   const trading = getTradingFacts();
   const mfBook = getMfBookValue();
+  const renewals = getRenewalReminders(new Date().toISOString().slice(0, 10));
 
   // Trading and MF books join net worth as derived asset lines when imported.
   const derived = [
@@ -55,6 +57,26 @@ export default function MapPage() {
           {summary.unknownCount > 0 && ` · ${summary.unknownCount} account(s) without a balance`}
         </p>
       </section>
+
+      {renewals.length > 0 && (
+        <section className="panel border-gold/60 p-4 text-sm">
+          <p>
+            {renewals.map((p) => (
+              <span key={p.id} className="mr-4">
+                <span className={p.renewal.status === "overdue" ? "text-loss" : "text-gold"}>
+                  {p.renewal.status === "overdue"
+                    ? `Insurance OVERDUE ${-p.renewal.daysUntil}d`
+                    : `Insurance renewal in ${p.renewal.daysUntil}d`}
+                </span>{" "}
+                — {p.insurer} {p.policyNo}
+              </span>
+            ))}
+            <Link href="/protection" className="text-teal underline">
+              Protection →
+            </Link>
+          </p>
+        </section>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="panel p-5">
