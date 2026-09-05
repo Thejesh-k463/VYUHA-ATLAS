@@ -181,3 +181,31 @@ clean `git status`. `data/` (real encrypted financial data) is gitignored, never
 9. Nice-to-have from phase 2: allocation targets are unset (user's book is all-equity today —
    set targets on /investments when debt/gold enter); NAV history chart; demat/equity CAS
    (NSDL/CDSL) is NOT parsed — only MF folios.
+
+## Agent layer (2026-09-05)
+
+Claude-Code agent layer added under `.claude/` (nothing else in the repo changed).
+
+**Hooks** — `.claude/hooks/`, wired in `.claude/settings.json` with absolute forward-slash
+commands (a backslash path is destroyed by the `sh` Claude Code runs hooks through), timeout 10:
+- `secrets-guard.mjs` — PreToolUse(Bash). Before a `git commit`/`push` it reads what git actually
+  holds (`git diff --cached --name-only` + `git ls-files`) and DENIES on any
+  `*.sqlite`/`-wal`/`-shm`, `*.key`, `*.pem`, or `data/` path, quoting the AGENTS.md rule.
+  Also denies `git commit|push|tag` issued from inside a subagent. Silence means allow, so it
+  never bypasses the normal permission prompt. `--selftest` exercises `decide()` on fixtures.
+- `session-line.mjs` — SessionStart. One line ≤200 chars: git dirt count, newest backup + age in
+  hours, last VERIFIED test count from this file, newest phase marked DONE.
+
+**Agents** — `.claude/agents/`:
+| name | model | turns | role |
+|---|---|---|---|
+| `atlas-verifier` | sonnet | 25 | runs the gate once, reports the AGENTS.md end-of-session checklist as observed numbers |
+| `atlas-monitor` | haiku | 12 | backup age + whether it verified (only `/api/backup` reveals that), encryption provider, git drift |
+| `atlas-builder` | opus | 60 | builds a phase under written-first gate discipline and invariants 1–9; never commits |
+
+**Skills** — `.claude/skills/`: `/atlas-verify` (forks to `atlas-verifier`), `/atlas-status`
+(forks to `atlas-monitor`).
+
+Trap worth keeping: `git ls-files | grep -Ei "sqlite|..."` false-positives on
+`types/better-sqlite3-multiple-ciphers.d.ts`, which is source. The anchored pattern
+`\.sqlite(-wal|-shm)?$|\.key$|\.pem$|^data/` is the one to use.
